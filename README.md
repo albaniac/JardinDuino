@@ -29,7 +29,7 @@ Présentation
 ![Arduino nano](./docs/images/arduino_nano.jpg)
 ![Shield Ethernet pour arduino nano](./docs/images/ethernet_nano.jpg)
 ![Capteur d'humidité du sol](./docs/images/soil_moisture_sensor.jpg)
-![Prise commandée](./docs/images/PC_somfy_rts.jpg)
+![Prise commandée](./docs/images/pc_somfy_rts.jpg)
 
 Le besoin
 -------------
