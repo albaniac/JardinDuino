@@ -3,13 +3,12 @@
 #include "src/HumidSensor.h"
 #include "src/LevelSensor.h"
 #include "src/domoticzGateway.h"
+#include "src/myConfig.h"
 
 #define MAX_HTTP_BUF_SIZE 100
 #define HTTP_PORT 80
 
 #define DEV_MODE 1
-
-void copy_response(EthernetClient & client, char * response);
 
 const char http_Unauthorized[] PROGMEM =
 "HTTP/1.0 401 Unauthorized\r\n"
@@ -34,10 +33,11 @@ const int dzIdxHumidSol4 = 86;
 const int dzIdxWaterLevel = 81;
 
 EthernetServer server = EthernetServer(HTTP_PORT);
-DomoticzGateway dzgw = DomoticzGateway(domoticzHost, domoticzPort);
+DomoticzGateway dzgw = NULL;
+// DomoticzGateway dzgw  = DomoticzGateway(domoticzHost, domoticzPort);
 
 const int pwrPin = 9;
-const int analogPin = A0;
+const int analogPin  = A0;
 const int analogPin2 = A1;
 const int analogPin3 = A2;
 const int analogPin4 = A3;
@@ -55,8 +55,6 @@ HumidSensor hum2(pwrPin, analogPin2);
 HumidSensor hum3(pwrPin, analogPin3);
 HumidSensor hum4(pwrPin, analogPin4);
 LevelSensor lvl;
-
-char myChar;
 
 unsigned long lastTime;
 
@@ -180,24 +178,15 @@ void loop() {
 	}
 }
 
-// renvoyer Http OK sur le client
-void copy_response(EthernetClient & client, char * response) {
-	int len = strlen_P(response);
-	for (int k = 0; k < len; k++) {
-		myChar = pgm_read_byte_near(response + k);
-		client.print(myChar);
-	}
-}
-
 // Envoi du statut de l'alerteBox
-void SendStatut(EthernetClient & client) {
+void sendStatut(EthernetClient & client) {
 	char buf[20];
 	uptime(buf);
 	copy_response(client, http_OK);
-	client.println(F("<H1>JardinDuino</H1>"));
-	client.println(F("<H2>Uptime : "));
+	client.println(F("<h1>JardinDuino</h1>"));
+	client.println(F("<h2>Uptime : "));
 	client.println(buf);
-	client.println(F("</H2><H2>humidite</h2> <h3> capteur 1 : "));
+	client.println(F("</h2><h2>humidite</h2> <h3> capteur 1 : "));
 	client.println(humidVal1);
 	client.println(F("</h3><h3> capteur 2 : "));
 	client.println(humidVal2);
@@ -208,10 +197,18 @@ void SendStatut(EthernetClient & client) {
 	client.println(F("</h3><h2> Niveau </H2> <h3> cuve : "));
 	client.println(levelcuveVal);
 	client.println(F(" % </h3>"));
+	client.println(F("<h2>Passerelle Domoticz a notifier </h2>"));
+	client.println(F("<h3>Host : "));
+	printIpAddress(client,dzgw.getDzServerHost());
+	client.println(F("</h3>"));
+	client.println(F("<h3>Port : "));
+	client.println(dzgw.getDzServerPort());
+	client.println(F("</h3>"));
+
 }
 
 // Envoi du statut de l'alerteBox
-void SendStatutJson(EthernetClient & client) {
+void sendStatutJson(EthernetClient & client) {
 	char buf[20];
 	uptime(buf);
 	copy_response(client, http_OK);
@@ -235,9 +232,9 @@ void SendStatutJson(EthernetClient & client) {
 void processRequest(String & request, EthernetClient & client) {
 	// cas de l'url exposée : /jardinduino en GET
 	if (strstr(request.c_str(), "GET /jardinduino/statut")) {
-		SendStatut(client);
+		sendStatut(client);
 	} else if (strstr(request.c_str(), "GET /jardinduino/getjsonInfo")) {
-		SendStatutJson(client);
+		sendStatutJson(client);
 	} else {
 		copy_response(client, http_Unauthorized);
 		client.println(F("<H1>UnAuthorized</H1>"));
@@ -266,4 +263,6 @@ void uptime(unsigned long timestamp, char * dest) {
 
 	sprintf(dest, "%02d days %02d:%02d:%02d", days, hours, mins, secs);
 }
+
+
 

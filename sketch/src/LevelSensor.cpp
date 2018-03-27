@@ -40,6 +40,6 @@ int LevelSensor::getRawValue() {
 }
 
 double LevelSensor::getPctValue() {
-	return (this->getRawValue() * 100) / _tableLength;
+	return ((this->getRawValue() * 100.0) / _tableLength);
 }
 
