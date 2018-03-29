@@ -29,6 +29,17 @@ DomoticzGateway::DomoticzGateway(IPAddress address, unsigned int domoticzPort) {
 	_dzServerPort = domoticzPort;
 }
 
+void DomoticzGateway::notifyDomoticz(Sensor * s) {
+	if (s->getDzIdx()>0){
+		this->notifyDomoticz(s->getDzIdx(), s->read());
+	}
+#if defined(DEV_MODE)
+	else {
+		Serial.print("Idx du Capteur <=0, pas de notif Dz");
+	}
+#endif
+}
+
 void DomoticzGateway::notifyDomoticz(int idx, int value) {
 	EthernetClient client;
 	if (client.connect(_dzServerHost, _dzServerPort)) {

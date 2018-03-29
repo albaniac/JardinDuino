@@ -1,42 +1,44 @@
 #include "HumidSensor.h"
 
-HumidSensor::HumidSensor(int analog) {
-	_pinPwr = -1;
-	_pinAnalog = analog;
+HumidSensor::HumidSensor(uint8_t analog) :
+		_pinPwr(-1), _pinAnalog(analog), _currentValue(0) {
 }
 
-HumidSensor::HumidSensor(int pin, int analog) {
-	_pinPwr = pin;
-	_pinAnalog = analog;
+HumidSensor::HumidSensor(uint8_t pin, uint8_t analog) :
+		_pinPwr(pin), _pinAnalog(analog), _currentValue(0) {
+}
+HumidSensor::HumidSensor(uint8_t pin, uint8_t analog, uint8_t dzIdx) :
+		_pinPwr(pin), _pinAnalog(analog), _currentValue(0) {
+	this->setDzIdx(dzIdx);
+}
+
+void HumidSensor::begin() {
+	//Configuration des E
 	pinMode(_pinPwr, OUTPUT);
 }
 
-void HumidSensor::powerOff() {
-	if (_pinPwr >= 0)
-		digitalWrite(_pinPwr, LOW);
-}
-
-void HumidSensor::powerUp() {
-	if (_pinPwr >= 0)
-		digitalWrite(_pinPwr, HIGH);
-}
-
-int HumidSensor::getRawValue() {
-	int val = analogRead(_pinAnalog);
-	return val;
-}
-
-double HumidSensor::getPctValue() {
-	//double val = ((1.0*getRawValue() *100) / 1024);
-	int v = getRawValue();
-	double val = map(v, 580, 270, 0, 100);
-	if (v < 270) {
-		val = 100;
+void HumidSensor::setPower(bool b) {
+	if (_pinPwr >= 0) {
+		if (b) {
+			digitalWrite(_pinPwr, HIGH);
+		} else {
+			digitalWrite(_pinPwr, LOW);
+		}
 	}
-	if (v > 580) {
-		val = 0;
-	}
+}
 
-	return val;
+void HumidSensor::refreshSensor() {
+	_currentValue = analogRead(_pinAnalog);
+}
+
+double HumidSensor::read() {
+	if (_currentValue < 270) {
+		return 100;
+	}
+	if (_currentValue > 580) {
+		return 0;
+	}
+	return map(_currentValue, 580, 270, 0, 100);
+
 }
 

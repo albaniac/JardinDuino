@@ -3,17 +3,23 @@
 
 #include "Arduino.h"
 #include <UIPEthernet.h>
+#include "Sensor.h"
 
 class DomoticzGateway {
+private :
+	uint8_t  _tableCorrespondance[10];
+
 public:
+	DomoticzGateway(){}
 	DomoticzGateway(IPAddress address, unsigned int domoticzPort);
 	void notifyDomoticz(int idx, int value);
+	void notifyDomoticz(Sensor * s);
 
 	const IPAddress& getDzServerHost() const {
 		return _dzServerHost;
 	}
 
-	void setDzServerHost(const IPAddress& dzServerHost) {
+	void setDzServerHost(const IPAddress  dzServerHost) {
 		_dzServerHost = dzServerHost;
 	}
 

@@ -8,6 +8,8 @@
 #define MAX_HTTP_BUF_SIZE 100
 #define HTTP_PORT 80
 
+#define POWER_OFF false
+#define POWER_ON true
 #define DEV_MODE 1
 
 const char http_Unauthorized[] PROGMEM =
@@ -22,10 +24,6 @@ const char http_OK[] PROGMEM =
 
 static byte mymac[] = { 0x80, 0x6B, 0x69, 0x2C, 0x30, 0x36 };
 
-// IP et port de la box domotique
-IPAddress domoticzHost(10, 10, 1, 10);
-const int domoticzPort = 8080;
-
 const int dzIdxHumidSol1 = 79;
 const int dzIdxHumidSol2 = 80;
 const int dzIdxHumidSol3 = 85;
@@ -33,28 +31,20 @@ const int dzIdxHumidSol4 = 86;
 const int dzIdxWaterLevel = 81;
 
 EthernetServer server = EthernetServer(HTTP_PORT);
-DomoticzGateway dzgw = NULL;
-// DomoticzGateway dzgw  = DomoticzGateway(domoticzHost, domoticzPort);
+DomoticzGateway dzgw;
+myConfig conf;
 
 const int pwrPin = 9;
-const int analogPin  = A0;
-const int analogPin2 = A1;
-const int analogPin3 = A2;
-const int analogPin4 = A3;
 
-int i = 10;
+HumidSensor hum1(pwrPin, A0, dzIdxHumidSol1);
+HumidSensor hum2(pwrPin, A1, dzIdxHumidSol2);
+HumidSensor hum3(pwrPin, A2, dzIdxHumidSol3);
+HumidSensor hum4(pwrPin, A3, dzIdxHumidSol4);
+LevelSensor lvl(dzIdxWaterLevel);
 
-int humidVal1;
-int humidVal2;
-int humidVal3;
-int humidVal4;
-int levelcuveVal;
+Sensor * TableCapteurs[10];
+int nbSensors = 0;
 
-HumidSensor hum1(pwrPin, analogPin);
-HumidSensor hum2(pwrPin, analogPin2);
-HumidSensor hum3(pwrPin, analogPin3);
-HumidSensor hum4(pwrPin, analogPin4);
-LevelSensor lvl;
 
 unsigned long lastTime;
 
@@ -65,17 +55,43 @@ void setup() {
 #endif
 	//initialisation de la communication Serie
 
+#if defined(DEV_MODE)
+	Serial.println(F("  > Check EEPROM "));
+#endif
+
+	IPAddress adrDzServer = conf.getIPAdress(0);
+	unsigned int portDzServer = conf.getPort(4);
+	Serial.print("Addresse Serveur DZ en eeprom a 0 : ");
+	Serial.println(adrDzServer);
+	if (adrDzServer[0] != 255 && adrDzServer[0] == 0 && portDzServer > 0){
+		dzgw.setDzServerHost(adrDzServer);
+		dzgw.setDzServerPort(portDzServer);
+	}
+
+
 	// Initialisation des pins
 #if defined(DEV_MODE)
 	Serial.println(F("  > Configuring Sensor Lvl"));
 #endif
-
 	lvl.addNextPin(2);
 	lvl.addNextPin(3);
 	lvl.addNextPin(4);
 	lvl.addNextPin(5);
 	lvl.addNextPin(6);
-	lvl.powerOff();
+
+
+	// Alimentation de la table de capteurs
+	TableCapteurs[nbSensors++] = &hum1;
+	TableCapteurs[nbSensors++] = &hum2;
+	TableCapteurs[nbSensors++] = &hum3;
+	TableCapteurs[nbSensors++] = &hum4;
+	TableCapteurs[nbSensors++] = &lvl;
+
+	// Init des capteurs
+	for (int i = 0 ; i < nbSensors ; i++){
+		TableCapteurs[i]->begin();
+		TableCapteurs[i]->setPower(POWER_OFF);
+	}
 
 #if defined(DEV_MODE)
 	Serial.println(F("  > Configuring Ethernet"));
@@ -104,45 +120,46 @@ void setup() {
 }
 
 void refreshSensors() {
+	// Allumage des capteurs
+	for (int i = 0 ; i < nbSensors ; i++){
+		TableCapteurs[i]->setPower(POWER_ON);
+	}
+
 	// allumage des capteurs et attente de 100 ms
-	hum1.powerUp();
 	delay(300);
-	lvl.powerUp();
 
 	// prise des mesures
-	humidVal1 = hum1.getPctValue();
-	humidVal2 = hum2.getPctValue();
-	humidVal3 = hum3.getPctValue();
-	humidVal4 = hum4.getPctValue();
-	levelcuveVal = lvl.getPctValue();
-	// extinction des capteurs
-	hum1.powerOff();
-	lvl.powerOff();
+	for (int i = 0 ; i < nbSensors ; i++){
+			TableCapteurs[i]->refreshSensor();
+	}
+
+	//Extinction des capteurs
+	for (int i = 0 ; i < nbSensors ; i++){
+		TableCapteurs[i]->setPower(POWER_ON);
+	}
 }
 
 void printSensorsValuesToSerial() {
 	// notif serie
 #if defined(DEV_MODE)
 	Serial.print(F("Capteur 1 humidite : "));
-	Serial.println(humidVal1);
+	Serial.println(hum1.read());
 	Serial.print(F("Capteur 2 humidite : "));
-	Serial.println(humidVal2);
+	Serial.println(hum2.read());
 	Serial.print(F("Capteur 3 humidite : "));
-	Serial.println(humidVal3);
+	Serial.println(hum3.read());
 	Serial.print(F("Capteur 4 humidite : "));
-	Serial.println(humidVal4);
+	Serial.println(hum4.read());
 	Serial.print(F("Capteur 5 niveau : "));
-	Serial.println(levelcuveVal);
+	Serial.println(lvl.read());
 #endif
 }
 
 void notificationDomotique() {
 // notif domoticz
-	dzgw.notifyDomoticz(dzIdxHumidSol1, humidVal1);
-	dzgw.notifyDomoticz(dzIdxHumidSol2, humidVal2);
-	dzgw.notifyDomoticz(dzIdxHumidSol3, humidVal3);
-	dzgw.notifyDomoticz(dzIdxHumidSol4, humidVal4);
-	dzgw.notifyDomoticz(dzIdxWaterLevel, levelcuveVal);
+	for (int i = 0 ; i < nbSensors ; i++){
+		dzgw.notifyDomoticz(TableCapteurs[i]);
+	}
 }
 
 void loop() {
@@ -160,7 +177,6 @@ void loop() {
 		}
 
 		processRequest(s, client);
-		//client.println(http_OK);
 		client.stop();
 	}
 
@@ -187,15 +203,15 @@ void sendStatut(EthernetClient & client) {
 	client.println(F("<h2>Uptime : "));
 	client.println(buf);
 	client.println(F("</h2><h2>humidite</h2> <h3> capteur 1 : "));
-	client.println(humidVal1);
+	client.println(hum1.read());
 	client.println(F("</h3><h3> capteur 2 : "));
-	client.println(humidVal2);
+	client.println(hum2.read());
 	client.println(F("</h3><h3> capteur 3 : "));
-	client.println(humidVal3);
+	client.println(hum3.read());
 	client.println(F("</h3><h3> capteur 4 : "));
-	client.println(humidVal4);
+	client.println(hum4.read());
 	client.println(F("</h3><h2> Niveau </H2> <h3> cuve : "));
-	client.println(levelcuveVal);
+	client.println(lvl.read());
 	client.println(F(" % </h3>"));
 	client.println(F("<h2>Passerelle Domoticz a notifier </h2>"));
 	client.println(F("<h3>Host : "));
@@ -216,15 +232,15 @@ void sendStatutJson(EthernetClient & client) {
 	client.println(F(" \"Uptime\" : \""));
 	client.println(buf);
 	client.println(F("\", \"humid_1\": \""));
-	client.println(humidVal1);
+	client.println(hum1.read());
 	client.println(F("\", \"humid_2\": \""));
-	client.println(humidVal2);
+	client.println(hum2.read());
 	client.println(F("\", \"humid_3\": \""));
-	client.println(humidVal3);
+	client.println(hum3.read());
 	client.println(F("\", \"humid_4\": \""));
-	client.println(humidVal4);
+	client.println(hum4.read());
 	client.println(F("\", \"niveau_cuve\": \""));
-	client.println(levelcuveVal);
+	client.println(lvl.read());
 	client.println(F("\"}]"));
 }
 

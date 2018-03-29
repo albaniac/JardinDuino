@@ -1,7 +1,15 @@
 #include "LevelSensor.h"
 
-LevelSensor::LevelSensor() {
+LevelSensor::LevelSensor() :
+		_currentValue(0) {
+}
+LevelSensor::LevelSensor(uint8_t dzIdx) :
+		_currentValue(0) {
+	this->setDzIdx(dzIdx);
+}
 
+void LevelSensor::begin(){
+	setPower(false);
 }
 
 void LevelSensor::addNextPin(int pin) {
@@ -9,37 +17,30 @@ void LevelSensor::addNextPin(int pin) {
 	_tableLength++;
 }
 
-void LevelSensor::powerOff() {
+void LevelSensor::setPower(bool b) {
 	for (int i = 0; i < _tableLength; i++) {
-		// init de la pin
-		pinMode(_pinTable[i], OUTPUT);      // sets the digital pin 7 as input
-		digitalWrite(_pinTable[i], LOW);
+		if (b) {
+			pinMode(_pinTable[i], INPUT_PULLUP); // sets the digital pin 7 as input
+		} else {
+			// init de la pin
+			pinMode(_pinTable[i], OUTPUT);    // sets the digital pin 7 as input
+			digitalWrite(_pinTable[i], LOW);
+		}
 	}
 }
 
-void LevelSensor::powerUp() {
-	for (int i = 0; i < _tableLength; i++) {
-		// init de la pin
-		pinMode(_pinTable[i], INPUT_PULLUP); // sets the digital pin 7 as input
-	}
-}
-
-int LevelSensor::getRawValue() {
-	powerUp();
+void LevelSensor::refreshSensor() {
 	int lvl = 0;
-
 	// récupération du niveau
 	for (int i = 0; i < _tableLength; i++) {
 		if (digitalRead(_pinTable[i]) == LOW) {
 			lvl = i + 1;
 		}
 	}
-
-	powerOff();
-	return lvl;
+	_currentValue = lvl;
 }
 
-double LevelSensor::getPctValue() {
-	return ((this->getRawValue() * 100.0) / _tableLength);
+double LevelSensor::read() {
+	return ((_currentValue * 100.0) / _tableLength);
 }
 

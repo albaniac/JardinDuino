@@ -12,6 +12,12 @@
 #include <Arduino.h>
 #include <UIPEthernet.h>
 
+#define IPADDR = 28
+#define PORT = 28
+
+#define PORT = 28
+
+
 class myConfig {
 
 public:
